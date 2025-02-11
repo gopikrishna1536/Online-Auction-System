@@ -1,0 +1,353 @@
+import javax.swing.*;
+import javax.swing.border.LineBorder;
+import javax.swing.table.DefaultTableModel;
+import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Timer;
+import java.util.TimerTask;
+
+class AuctionItem {
+    private int itemId;
+    private String itemName;
+    private double currentBid;
+    private String highestBidder;
+
+    public AuctionItem(int itemId, String itemName) {
+        this.itemId = itemId;
+        this.itemName = itemName;
+        this.currentBid = 0.0;
+        this.highestBidder = "None";
+    }
+
+    public int getItemId() {
+        return itemId;
+    }
+
+    public String getItemName() {
+        return itemName;
+    }
+
+    public double getCurrentBid() {
+        return currentBid;
+    }
+
+    public String getHighestBidder() {
+        return highestBidder;
+    }
+
+    public void placeBid(String bidderName, double bidAmount) {
+        if (bidAmount > currentBid) {
+            currentBid = bidAmount;
+            highestBidder = bidderName;
+            JOptionPane.showMessageDialog(null, "Bid placed successfully!", "Success", JOptionPane.INFORMATION_MESSAGE);
+        } else {
+            JOptionPane.showMessageDialog(null, "Bid too low! Current highest bid is $" + currentBid, "Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+}
+
+class User {
+    private String username;
+    private String password;
+    private String mobile;
+    private String address;
+    private ArrayList<AuctionItem> wonItems;
+
+    public User(String username, String password, String mobile, String address) {
+        this.username = username;
+        this.password = password;
+        this.mobile = mobile;
+        this.address = address;
+        this.wonItems = new ArrayList<>();
+    }
+
+    public String getUsername() {
+        return username;
+    }
+
+    public boolean checkPassword(String password) {
+        return this.password.equals(password);
+    }
+
+    public void setPassword(String password) {
+        this.password = password;
+    }
+
+    public void addWonItem(AuctionItem item) {
+        wonItems.add(item);
+    }
+
+    public ArrayList<AuctionItem> getWonItems() {
+        return wonItems;
+    }
+}
+
+public class AuctionSystemGUI extends JFrame {
+    private ArrayList<AuctionItem> auctionItems;
+    private HashMap<String, User> users;
+    private User loggedInUser;
+    private boolean isAdmin;
+    private JTable itemTable;
+    private DefaultTableModel tableModel;
+    private Timer auctionTimer;
+    private int timeRemaining;
+
+    public AuctionSystemGUI() {
+        setTitle("Auction System");
+        setSize(900, 700);
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setLayout(new BorderLayout());
+
+        // Main panel with light gray background
+        JPanel mainPanel = new JPanel(new BorderLayout());
+        mainPanel.setBackground(new Color(240, 240, 240));
+
+        // Initialize auction items and users
+        auctionItems = new ArrayList<>();
+        users = new HashMap<>();
+        addInitialItems();
+
+        // Header label
+        JLabel headerLabel = new JLabel("Auction System", JLabel.CENTER);
+        headerLabel.setFont(new Font("Arial", Font.BOLD, 30));
+        headerLabel.setForeground(Color.WHITE);
+        headerLabel.setBackground(new Color(0, 102, 204)); // Blue
+        headerLabel.setOpaque(true);
+        mainPanel.add(headerLabel, BorderLayout.NORTH);
+
+        // Display auction items using a JTable
+        String[] columnNames = {"Item ID", "Item Name", "Current Bid", "Highest Bidder"};
+        tableModel = new DefaultTableModel(columnNames, 0);
+        itemTable = new JTable(tableModel);
+        itemTable.setFillsViewportHeight(true);
+        itemTable.setBackground(Color.WHITE);
+        itemTable.setFont(new Font("Arial", Font.PLAIN, 14));
+        itemTable.setGridColor(new Color(200, 200, 200));
+        itemTable.setBorder(new LineBorder(Color.GRAY));
+
+        JScrollPane scrollPane = new JScrollPane(itemTable);
+        mainPanel.add(scrollPane, BorderLayout.CENTER);
+
+        // Control buttons panel
+        JPanel buttonPanel = new JPanel();
+        buttonPanel.setBackground(new Color(0, 102, 204));
+        buttonPanel.setLayout(new GridLayout(2, 4, 10, 10)); // 2 rows, 4 columns
+
+        // Create buttons
+        JButton registerButton = createButton("Register", "icons/register.png");
+        JButton loginButton = createButton("Login", "icons/login.png");
+        JButton displayButton = createButton("Display Items", "icons/display.png");
+        JButton bidButton = createButton("Place Bid", "icons/bid.png");
+        JButton addItemButton = createButton("Add Item", "icons/add.png");
+        JButton setTimerButton = createButton("Set Timer", "icons/timer.png");
+        JButton exitButton = createButton("Exit", "icons/exit.png");
+
+        // Add action listeners to buttons
+        registerButton.addActionListener(e -> registerUser());
+        loginButton.addActionListener(e -> loginUser());
+        displayButton.addActionListener(e -> displayItemsInTable());
+        bidButton.addActionListener(e -> placeBid());
+        addItemButton.addActionListener(e -> addItem());
+        setTimerButton.addActionListener(e -> setAuctionTimer());
+        exitButton.addActionListener(e -> System.exit(0));
+
+        // Add buttons to the panel
+        buttonPanel.add(registerButton);
+        buttonPanel.add(loginButton);
+        buttonPanel.add(displayButton);
+        buttonPanel.add(bidButton);
+        buttonPanel.add(addItemButton);
+        buttonPanel.add(setTimerButton);
+        buttonPanel.add(exitButton);
+
+        mainPanel.add(buttonPanel, BorderLayout.SOUTH);
+        add(mainPanel);
+
+        setVisible(true);
+    }
+
+    private JButton createButton(String text, String iconPath) {
+        JButton button = new JButton(text);
+        button.setFont(new Font("Arial", Font.BOLD, 14));
+        button.setForeground(Color.WHITE);
+        button.setBackground(new Color(0, 153, 51)); // Green
+        button.setBorderPainted(false);
+        button.setFocusPainted(false);
+        button.setContentAreaFilled(true);
+        button.setIcon(new ImageIcon(iconPath)); // Set icon
+        button.setHorizontalTextPosition(SwingConstants.RIGHT); // Place text to the right of the icon
+        return button;
+    }
+
+    private void addInitialItems() {
+        auctionItems.add(new AuctionItem(1, "Antique Vase"));
+        auctionItems.add(new AuctionItem(2, "Vintage Car"));
+        auctionItems.add(new AuctionItem(3, "Painting by Van Gogh"));
+        auctionItems.add(new AuctionItem(4, "Rolex Watch"));
+        auctionItems.add(new AuctionItem(5, "Diamond Necklace"));
+        auctionItems.add(new AuctionItem(6, "Rare Book"));
+        auctionItems.add(new AuctionItem(7, "Luxury Yacht"));
+    }
+
+    private void displayItemsInTable() {
+        tableModel.setRowCount(0);
+        for (AuctionItem item : auctionItems) {
+            Object[] rowData = {item.getItemId(), item.getItemName(), item.getCurrentBid(), item.getHighestBidder()};
+            tableModel.addRow(rowData);
+        }
+    }
+
+    private void registerUser() {
+        String username = JOptionPane.showInputDialog(this, "Enter username:", "Register", JOptionPane.QUESTION_MESSAGE);
+        String password = JOptionPane.showInputDialog(this, "Enter password:", "Register", JOptionPane.QUESTION_MESSAGE);
+        String mobile = JOptionPane.showInputDialog(this, "Enter mobile number:", "Register", JOptionPane.QUESTION_MESSAGE);
+        String address = JOptionPane.showInputDialog(this, "Enter address:", "Register", JOptionPane.QUESTION_MESSAGE);
+
+        if (username == null || password == null || mobile == null || address == null) {
+            return;
+        }
+
+        if (users.containsKey(username)) {
+            JOptionPane.showMessageDialog(this, "Username already exists!", "Error", JOptionPane.ERROR_MESSAGE);
+        } else {
+            users.put(username, new User(username, password, mobile, address));
+            JOptionPane.showMessageDialog(this, "Registration successful!", "Success", JOptionPane.INFORMATION_MESSAGE);
+        }
+    }
+
+    private void loginUser() {
+        String username = JOptionPane.showInputDialog(this, "Enter username:", "Login", JOptionPane.QUESTION_MESSAGE);
+        String password = JOptionPane.showInputDialog(this, "Enter password:", "Login", JOptionPane.QUESTION_MESSAGE);
+
+        if (username == null || password == null) {
+            return;
+        }
+
+        if (username.equals("admin") && password.equals("admin")) {
+            isAdmin = true;
+            loggedInUser = new User("admin", "admin", "000", "Admin Address");
+            JOptionPane.showMessageDialog(this, "Logged in as Admin!", "Success", JOptionPane.INFORMATION_MESSAGE);
+        } else {
+            User user = users.get(username);
+            if (user != null && user.checkPassword(password)) {
+                loggedInUser = user;
+                isAdmin = false;
+                JOptionPane.showMessageDialog(this, "Logged in successfully!", "Success", JOptionPane.INFORMATION_MESSAGE);
+            } else {
+                JOptionPane.showMessageDialog(this, "Invalid username or password!", "Error", JOptionPane.ERROR_MESSAGE);
+            }
+        }
+    }
+
+    private void placeBid() {
+        if (loggedInUser == null) {
+            JOptionPane.showMessageDialog(this, "You must be logged in to place a bid!", "Error", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        String itemIdStr = JOptionPane.showInputDialog(this, "Enter Item ID:", "Place Bid", JOptionPane.QUESTION_MESSAGE);
+        String bidAmountStr = JOptionPane.showInputDialog(this, "Enter Bid Amount:", "Place Bid", JOptionPane.QUESTION_MESSAGE);
+
+        if (itemIdStr == null || bidAmountStr == null) {
+            return;
+        }
+
+        try {
+            int itemId = Integer.parseInt(itemIdStr);
+            double bidAmount = Double.parseDouble(bidAmountStr);
+
+            AuctionItem item = auctionItems.stream()
+                    .filter(auctionItem -> auctionItem.getItemId() == itemId)
+                    .findFirst()
+                    .orElse(null);
+
+            if (item != null) {
+                item.placeBid(loggedInUser.getUsername(), bidAmount);
+                displayItemsInTable();
+            } else {
+                JOptionPane.showMessageDialog(this, "Item not found!", "Error", JOptionPane.ERROR_MESSAGE);
+            }
+        } catch (NumberFormatException e) {
+            JOptionPane.showMessageDialog(this, "Invalid input!", "Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private void addItem() {
+        if (!isAdmin) {
+            JOptionPane.showMessageDialog(this, "Only admin can add items!", "Error", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        String itemName = JOptionPane.showInputDialog(this, "Enter Item Name:", "Add Item", JOptionPane.QUESTION_MESSAGE);
+        String itemIdStr = JOptionPane.showInputDialog(this, "Enter Item ID:", "Add Item", JOptionPane.QUESTION_MESSAGE);
+
+        if (itemName == null || itemIdStr == null) {
+            return;
+        }
+
+        try {
+            int itemId = Integer.parseInt(itemIdStr);
+            if (auctionItems.stream().anyMatch(item -> item.getItemId() == itemId)) {
+                JOptionPane.showMessageDialog(this, "Item ID already exists!", "Error", JOptionPane.ERROR_MESSAGE);
+            } else {
+                auctionItems.add(new AuctionItem(itemId, itemName));
+                JOptionPane.showMessageDialog(this, "Item added successfully!", "Success", JOptionPane.INFORMATION_MESSAGE);
+                displayItemsInTable();
+            }
+        } catch (NumberFormatException e) {
+            JOptionPane.showMessageDialog(this, "Invalid Item ID!", "Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private void setAuctionTimer() {
+        if (!isAdmin) {
+            JOptionPane.showMessageDialog(this, "Only admin can set the auction timer!", "Error", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        String timeStr = JOptionPane.showInputDialog(this, "Enter time in seconds for the auction:", "Set Timer", JOptionPane.QUESTION_MESSAGE);
+        if (timeStr == null) {
+            return;
+        }
+
+        try {
+            timeRemaining = Integer.parseInt(timeStr);
+            auctionTimer = new Timer();
+            auctionTimer.scheduleAtFixedRate(new TimerTask() {
+                @Override
+                public void run() {
+                    timeRemaining--;
+                    displayTimeRemaining();
+                    if (timeRemaining <= 0) {
+                        auctionTimer.cancel();
+                        showWinners();
+                    }
+                }
+            }, 0, 1000); // Update every second
+            JOptionPane.showMessageDialog(this, "Auction timer set for " + timeRemaining + " seconds!", "Timer Set", JOptionPane.INFORMATION_MESSAGE);
+        } catch (NumberFormatException e) {
+            JOptionPane.showMessageDialog(this, "Invalid time format!", "Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private void displayTimeRemaining() {
+        if (timeRemaining >= 0) {
+            System.out.println("Time remaining: " + timeRemaining + " seconds");
+        }
+    }
+
+    private void showWinners() {
+        StringBuilder winners = new StringBuilder("Auction Winners:\n");
+        for (AuctionItem item : auctionItems) {
+            winners.append(item.getItemName()).append(" - ").append(item.getHighestBidder()).append("\n");
+        }
+        JOptionPane.showMessageDialog(this, winners.toString(), "Winners", JOptionPane.INFORMATION_MESSAGE);
+    }
+
+    public static void main(String[] args) {
+        SwingUtilities.invokeLater(AuctionSystemGUI::new);
+    }
+}
