@@ -2,6 +2,8 @@ package com.auction.service;
 
 import com.auction.model.AuctionItem;
 import com.auction.model.User;
+import com.auction.repository.AuctionRepository;
+import com.auction.repository.InMemoryAuctionRepository;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -12,7 +14,7 @@ import java.util.function.Consumer;
  * Service managing auction lifecycle, item catalog, user sessions, bids, and countdown timers.
  */
 public class AuctionService {
-    private final List<AuctionItem> items;
+    private final AuctionRepository itemRepository;
     private final Map<String, User> users;
     private User currentUser;
     private Timer timer;
@@ -24,7 +26,11 @@ public class AuctionService {
     private final List<Consumer<Map<AuctionItem, String>>> auctionEndListeners = new CopyOnWriteArrayList<>();
 
     public AuctionService() {
-        this.items = new CopyOnWriteArrayList<>();
+        this(new InMemoryAuctionRepository());
+    }
+
+    public AuctionService(AuctionRepository repository) {
+        this.itemRepository = Objects.requireNonNull(repository, "Repository cannot be null.");
         this.users = new ConcurrentHashMap<>();
         this.currentUser = null;
         this.timeRemaining = 0;
@@ -95,20 +101,27 @@ public class AuctionService {
         if (item == null) {
             throw new IllegalArgumentException("Item cannot be null.");
         }
-        boolean exists = items.stream().anyMatch(i -> i.getItemId() == item.getItemId());
-        if (exists) {
-            return false;
-        }
-        items.add(item);
-        return true;
+        return itemRepository.save(item);
     }
 
     public Optional<AuctionItem> findItemById(int itemId) {
-        return items.stream().filter(i -> i.getItemId() == itemId).findFirst();
+        return itemRepository.findById(itemId);
     }
 
     public List<AuctionItem> getAllItems() {
-        return Collections.unmodifiableList(items);
+        return itemRepository.findAll();
+    }
+
+    public List<AuctionItem> searchItems(String keyword) {
+        return itemRepository.searchByName(keyword);
+    }
+
+    public List<AuctionItem> filterItemsByPrice(double minPrice, double maxPrice) {
+        return itemRepository.findByPriceRange(minPrice, maxPrice);
+    }
+
+    public AuctionRepository getRepository() {
+        return itemRepository;
     }
 
     public synchronized boolean placeBid(int itemId, double bidAmount) {
@@ -160,7 +173,7 @@ public class AuctionService {
         this.auctionRunning = false;
 
         Map<AuctionItem, String> winners = new LinkedHashMap<>();
-        for (AuctionItem item : items) {
+        for (AuctionItem item : itemRepository.findAll()) {
             item.setActive(false);
             String winner = item.getHighestBidder();
             winners.put(item, winner);

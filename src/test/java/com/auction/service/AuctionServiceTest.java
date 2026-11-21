@@ -103,4 +103,23 @@ class AuctionServiceTest {
         assertTrue(notified.get());
         assertFalse(service.findItemById(1).orElseThrow().isActive());
     }
+
+    @Test
+    @DisplayName("Should search items by keyword across repository")
+    void shouldSearchItemsByKeyword() {
+        var results = service.searchItems("Vase");
+        assertEquals(1, results.size());
+        assertEquals("Antique Vase", results.get(0).getName());
+
+        var emptyResults = service.searchItems("NonExistentWidget");
+        assertTrue(emptyResults.isEmpty());
+    }
+
+    @Test
+    @DisplayName("Should filter items by price range across repository")
+    void shouldFilterItemsByPriceRange() {
+        var results = service.filterItemsByPrice(100.0, 500.0);
+        // Antique Vase ($150), First Edition Rare Book ($450)
+        assertEquals(2, results.size());
+    }
 }
