@@ -51,6 +51,25 @@ class AuctionItemTest {
     }
 
     @Test
+    @DisplayName("Should strictly enforce custom minimum bid increments")
+    void shouldEnforceMinimumBidIncrement() {
+        // Item with $100 starting bid and $15 minimum increment
+        AuctionItem item = new AuctionItem(25, "Vintage Sculpture", 100.0, 15.0);
+
+        // $110 should be rejected because min required is 100 + 15 = 115
+        assertThrows(IllegalArgumentException.class, () -> item.placeBid("dan", 110.0));
+
+        // Exactly 115 should be accepted
+        assertTrue(item.placeBid("dan", 115.0));
+        assertEquals(115.0, item.getCurrentBid());
+
+        // Next bid must be at least 115 + 15 = 130
+        assertThrows(IllegalArgumentException.class, () -> item.placeBid("elena", 125.0));
+        assertTrue(item.placeBid("elena", 130.0));
+        assertEquals(130.0, item.getCurrentBid());
+    }
+
+    @Test
     @DisplayName("Should reject bid if item is closed/inactive")
     void shouldRejectBidOnInactiveItem() {
         AuctionItem item = new AuctionItem(10, "Rare Painting", 100.0);

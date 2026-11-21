@@ -11,27 +11,35 @@ public class AuctionItem {
     private double currentBid;
     private String highestBidder;
     private boolean active;
+    private double minimumIncrement;
 
     public AuctionItem(int itemId, String itemName) {
+        this(itemId, itemName, 0.0, 1.0);
+    }
+
+    public AuctionItem(int itemId, String itemName, double startingBid) {
+        this(itemId, itemName, startingBid, 1.0);
+    }
+
+    public AuctionItem(int itemId, String itemName, double startingBid, double minimumIncrement) {
         if (itemId <= 0) {
             throw new IllegalArgumentException("Item ID must be positive.");
         }
         if (itemName == null || itemName.trim().isEmpty()) {
             throw new IllegalArgumentException("Item name cannot be null or empty.");
         }
-        this.itemId = itemId;
-        this.itemName = itemName.trim();
-        this.currentBid = 0.0;
-        this.highestBidder = "None";
-        this.active = true;
-    }
-
-    public AuctionItem(int itemId, String itemName, double startingBid) {
-        this(itemId, itemName);
         if (startingBid < 0.0) {
             throw new IllegalArgumentException("Starting bid cannot be negative.");
         }
+        if (minimumIncrement <= 0.0) {
+            throw new IllegalArgumentException("Minimum increment must be positive.");
+        }
+        this.itemId = itemId;
+        this.itemName = itemName.trim();
         this.currentBid = startingBid;
+        this.highestBidder = "None";
+        this.active = true;
+        this.minimumIncrement = minimumIncrement;
     }
 
     public int getItemId() {
@@ -58,16 +66,17 @@ public class AuctionItem {
         this.active = active;
     }
 
-    /**
-     * Places a bid on the item if the bid amount is strictly greater than the current bid
-     * and the item is active.
-     *
-     * @param bidderName username of the bidder
-     * @param bidAmount  amount offered
-     * @return true if bid was accepted
-     * @throws IllegalStateException    if auction on this item is closed
-     * @throws IllegalArgumentException if bidder is invalid or bid amount is not higher
-     */
+    public synchronized double getMinimumIncrement() {
+        return minimumIncrement;
+    }
+
+    public synchronized void setMinimumIncrement(double minimumIncrement) {
+        if (minimumIncrement <= 0.0) {
+            throw new IllegalArgumentException("Minimum increment must be positive.");
+        }
+        this.minimumIncrement = minimumIncrement;
+    }
+
     public synchronized boolean placeBid(String bidderName, double bidAmount) {
         if (!active) {
             throw new IllegalStateException("Auction for item '" + itemName + "' is closed.");
@@ -75,8 +84,9 @@ public class AuctionItem {
         if (bidderName == null || bidderName.trim().isEmpty()) {
             throw new IllegalArgumentException("Bidder name cannot be empty.");
         }
-        if (bidAmount <= currentBid) {
-            throw new IllegalArgumentException("Bid must be strictly greater than current bid ($" + currentBid + ").");
+        double minRequired = currentBid + minimumIncrement;
+        if (bidAmount < minRequired) {
+            throw new IllegalArgumentException(String.format("Bid must be at least $%.2f (minimum increment is $%.2f over current bid $%.2f).", minRequired, minimumIncrement, currentBid));
         }
 
         this.currentBid = bidAmount;
