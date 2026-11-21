@@ -15,6 +15,7 @@ import java.util.function.Consumer;
  */
 public class AuctionService {
     private final AuctionRepository itemRepository;
+    private final BidAuditService auditService;
     private final Map<String, User> users;
     private User currentUser;
     private Timer timer;
@@ -31,6 +32,7 @@ public class AuctionService {
 
     public AuctionService(AuctionRepository repository) {
         this.itemRepository = Objects.requireNonNull(repository, "Repository cannot be null.");
+        this.auditService = new BidAuditService();
         this.users = new ConcurrentHashMap<>();
         this.currentUser = null;
         this.timeRemaining = 0;
@@ -124,6 +126,10 @@ public class AuctionService {
         return itemRepository;
     }
 
+    public BidAuditService getAuditService() {
+        return auditService;
+    }
+
     public synchronized boolean placeBid(int itemId, double bidAmount) {
         if (currentUser == null) {
             throw new IllegalStateException("Authentication required to place a bid.");
@@ -131,7 +137,11 @@ public class AuctionService {
         AuctionItem item = findItemById(itemId)
                 .orElseThrow(() -> new NoSuchElementException("Item with ID " + itemId + " not found."));
 
-        return item.placeBid(currentUser.getUsername(), bidAmount);
+        boolean placed = item.placeBid(currentUser.getUsername(), bidAmount);
+        if (placed) {
+            auditService.recordBid(itemId, currentUser.getUsername(), bidAmount, "127.0.0.1");
+        }
+        return placed;
     }
 
     public synchronized void startAuctionTimer(int durationSeconds) {

@@ -122,4 +122,19 @@ class AuctionServiceTest {
         // Antique Vase ($150), First Edition Rare Book ($450)
         assertEquals(2, results.size());
     }
+
+    @Test
+    @DisplayName("Should record immutable audit ledger entry when bid is successfully placed")
+    void shouldRecordAuditLedgerOnSuccessfulBid() {
+        service.registerUser("audited_bidder", "pass", "123", "City");
+        service.login("audited_bidder", "pass");
+
+        boolean placed = service.placeBid(1, 400.0);
+        assertTrue(placed);
+
+        var auditEntries = service.getAuditService().getLedgerForItem(1);
+        assertEquals(1, auditEntries.size());
+        assertEquals("audited_bidder", auditEntries.get(0).getBidderUsername());
+        assertEquals(400.0, auditEntries.get(0).getBidAmount());
+    }
 }
